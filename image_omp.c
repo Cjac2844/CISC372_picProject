@@ -1,18 +1,8 @@
-/********************************************************************
- *  image_omp.c
- *
- *  Parallel version of the image convolution program using OpenMP.
- *  The outer loop over rows is parallelized with a simple pragma.
- *
- *  Compile with:
- *      gcc -g image_omp.c -o image_omp -lm -fopenmp
- ********************************************************************/
-
 #include <stdio.h>
 #include <stdint.h>
 #include <time.h>
 #include <string.h>
-#include <omp.h>              /* <-- NEW: OpenMP header */
+#include <omp.h>
 #include "image.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -21,25 +11,18 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-/* -----------------------------------------------------------------
- *  Kernel matrices (same as original)
- * ----------------------------------------------------------------- */
 Matrix algorithms[] = {
-    {{0,-1,0},{-1,4,-1},{0,-1,0}},                     /* EDGE      */
-    {{0,-1,0},{-1,5,-1},{0,-1,0}},                     /* SHARPEN   */
-    {{1/9.0,1/9.0,1/9.0},{1/9.0,1/9.0,1/9.0},{1/9.0,1/9.0,1/9.0}}, /* BLUR      */
-    {{1.0/16,1.0/8,1.0/16},{1.0/8,1.0/4,1.0/8},{1.0/16,1.0/8,1.0/16}}, /* GAUSS     */
-    {{-2,-1,0},{-1,1,1},{0,1,2}},                       /* EMBOSS    */
-    {{0,0,0},{0,1,0},{0,0,0}}                          /* IDENTITY  */
+    {{0,-1,0},{-1,4,-1},{0,-1,0}},
+    {{0,-1,0},{-1,5,-1},{0,-1,0}},
+    {{1/9.0,1/9.0,1/9.0},{1/9.0,1/9.0,1/9.0},{1/9.0,1/9.0,1/9.0}},
+    {{1.0/16,1.0/8,1.0/16},{1.0/8,1.0/4,1.0/8},{1.0/16,1.0/8,1.0/16}},
+    {{-2,-1,0},{-1,1,1},{0,1,2}},
+    {{0,0,0},{0,1,0},{0,0,0}}
 };
 
-/* -----------------------------------------------------------------
- *  getPixelValue - unchanged
- * ----------------------------------------------------------------- */
 uint8_t getPixelValue(Image* srcImage, int x, int y, int bit, Matrix algorithm)
 {
     int px = x+1, py = y+1, mx = x-1, my = y-1;
-
     if (mx < 0) mx = 0;
     if (my < 0) my = 0;
     if (px >= srcImage->width)  px = srcImage->width-1;
@@ -59,34 +42,23 @@ uint8_t getPixelValue(Image* srcImage, int x, int y, int bit, Matrix algorithm)
     return result;
 }
 
-/* -----------------------------------------------------------------
- *  convolute - now parallelized with OpenMP
- * ----------------------------------------------------------------- */
 void convolute(Image* srcImage, Image* destImage, Matrix algorithm)
 {
     int row, pix, bit;
-
-    /* <-- KEY LINE: Parallelize the outer row loop */
     #pragma omp parallel for private(pix, bit) schedule(static)
     for (row = 0; row < srcImage->height; ++row) {
         for (pix = 0; pix < srcImage->width; ++pix) {
             for (bit = 0; bit < srcImage->bpp; ++bit) {
-                destImage->data[Index(pix, row,
-                                      srcImage->width,
-                                      bit, srcImage->bpp)] =
+                destImage->data[Index(pix, row, srcImage->width, bit, srcImage->bpp)] =
                     getPixelValue(srcImage, pix, row, bit, algorithm);
             }
         }
     }
 }
 
-/* -----------------------------------------------------------------
- *  Usage & GetKernelType - unchanged
- * ----------------------------------------------------------------- */
 int Usage(void)
 {
-    printf("Usage: image <filename> <type>\n"
-           "\twhere type is one of (edge,sharpen,blur,gauss,emboss,identity)\n");
+    printf("Usage: image <filename> <type>\n\twhere type is one of (edge,sharpen,blur,gauss,emboss,identity)\n");
     return -1;
 }
 
@@ -100,13 +72,9 @@ enum KernelTypes GetKernelType(char* type)
     return IDENTITY;
 }
 
-/* -----------------------------------------------------------------
- *  main - unchanged except calling convolute()
- * ----------------------------------------------------------------- */
 int main(int argc, char** argv)
 {
     long t1 = time(NULL);
-
     stbi_set_flip_vertically_on_load(0);
     if (argc != 3) return Usage();
 
@@ -116,32 +84,22 @@ int main(int argc, char** argv)
     }
 
     enum KernelTypes type = GetKernelType(argv[2]);
-
     Image srcImage, destImage;
 
-    srcImage.data = stbi_load(fileName,
-                              &srcImage.width,
-                              &srcImage.height,
-                              &srcImage.bpp, 0);
+    srcImage.data = stbi_load(fileName, &srcImage.width, &srcImage.height, &srcImage.bpp, 0);
     if (!srcImage.data) {
         printf("Error loading file %s.\n", fileName);
         return -1;
     }
 
-    destImage.bpp    = srcImage.bpp;
+    destImage.bpp = srcImage.bpp;
     destImage.height = srcImage.height;
-    destImage.width  = srcImage.width;
-    destImage.data   = malloc(sizeof(uint8_t) *
-                              destImage.width * destImage.bpp * destImage.height);
+    destImage.width = srcImage.width;
+    destImage.data = malloc(sizeof(uint8_t) * destImage.width * destImage.bpp * destImage.height);
 
-    /* ---- parallel convolution with OpenMP ---- */
     convolute(&srcImage, &destImage, algorithms[type]);
 
-    stbi_write_png("output.png",
-                   destImage.width, destImage.height,
-                   destImage.bpp, destImage.data,
-                   destImage.bpp * destImage.width);
-
+    stbi_write_png("output.png", destImage.width, destImage.height, destImage.bpp, destImage.data, destImage.bpp * destImage.width);
     stbi_image_free(srcImage.data);
     free(destImage.data);
 
