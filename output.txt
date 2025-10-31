@@ -1,0 +1,10 @@
+Script started on 2025-10-31 12:32:02-04:00 [TERM="xterm-256color" TTY="/dev/pts/0" COLUMNS="120" LINES="30"]
+cjac@cuda-hw2:~/CISC372_picProject$ ./image_pthread pic1.jpg edge[C
+Took 8 seconds
+cjac@cuda-hw2:~/CISC372_picProject$ export OMP_NUM_THREADS=4[C
+cjac@cuda-hw2:~/CISC372_picProject$ ./image_omp pic1.jpg edge[C
+Took 8 seconds
+cjac@cuda-hw2:~/CISC372_picProject$ exit
+exit
+
+Script done on 2025-10-31 12:33:09-04:00 [COMMAND_EXIT_CODE="0"]
